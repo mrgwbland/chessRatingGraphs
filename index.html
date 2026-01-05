@@ -15,10 +15,10 @@
         <div class="controls">
             <div class="date-range">
                 <label>
-                    From: <input type="date" id="startDate" value="2024-01-01">
+                    From: <input type="date" id="startDate" value="2023-01-01">
                 </label>
                 <label>
-                    To: <input type="date" id="endDate" value="2025-12-31">
+                    To: <input type="date" id="endDate" value="2026-01-01">
                 </label>
                 <button id="applyDateRange">Apply</button>
             </div>
@@ -29,6 +29,15 @@
                     <input type="file" id="csvInput" accept=".csv" multiple>
                     <label for="csvInput" class="file-label">+ Add Player CSV</label>
                 </div>
+            </div>
+            
+            <div class="chesscom-lookup">
+                <h3>Chess.com Profile Lookup</h3>
+                <div class="lookup-form">
+                    <input type="text" id="username" placeholder="Enter chess.com username">
+                    <button id="downloadBtn">Download Data</button>
+                </div>
+                <div id="statusMessage"></div>
             </div>
         </div>
         

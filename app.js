@@ -7,7 +7,7 @@ let players = [];
 let chart = null;
 let colorIndex = 0;
 
-// Initialize chart
+// Initialise chart
 function initChart() {
     const ctx = document.getElementById('ratingChart').getContext('2d');
     chart = new Chart(ctx, {
@@ -108,8 +108,8 @@ function updateChart() {
         borderColor: player.color,
         backgroundColor: player.color + '20',
         borderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
+        pointRadius: 1,
+        pointHoverRadius: 3,
         tension: 0.1
     }));
     
@@ -171,6 +171,171 @@ async function loadSampleData() {
     }
 }
 
-// Initialize
+// Initialise
 initChart();
 loadSampleData();
+
+// Chess.com API integration - fetches all time controls at once
+async function fetchChessComRatingHistory(username) {
+    const statusMsg = document.getElementById('statusMessage');
+    statusMsg.textContent = 'Fetching data...';
+    statusMsg.className = 'status-info';
+    
+    try {
+        // Fetch player's game archives
+        const archivesResponse = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`, {
+            headers: {
+                'User-Agent': 'chess-rating-graphs/1.0 (username: 62WestWallaby; contact: mrgwbland@gmail.com)'
+            }
+        });
+        
+        if (!archivesResponse.ok) {
+            throw new Error(`Player not found or API error (${archivesResponse.status})`);
+        }
+        
+        const archivesData = await archivesResponse.json();
+        const archives = archivesData.archives || [];
+        
+        if (archives.length === 0) {
+            throw new Error('No game history found for this player');
+        }
+        
+        statusMsg.textContent = `Found ${archives.length} months of data. Processing...`;
+        
+        // Store ratings by time control
+        const ratingsByTimeControl = {
+            bullet: [],
+            blitz: [],
+            rapid: [],
+            daily: []
+        };
+        
+        // Fetch all monthly archives
+        for (const archiveUrl of archives) {
+            try {
+                const gamesResponse = await fetch(archiveUrl, {
+                    headers: {
+                        'User-Agent': 'chess-rating-graphs/1.0 (username: 62WestWallaby; contact: mrgwbland@gmail.com)'
+                    }
+                });
+                
+                if (gamesResponse.ok) {
+                    const gamesData = await gamesResponse.json();
+                    const games = gamesData.games || [];
+                    
+                    // Extract ratings for all time controls
+                    games.forEach(game => {
+                        // Only include standard chess games, not variants like 960, bughouse, etc.
+                        if (game.rules === 'chess' && ratingsByTimeControl[game.time_class]) {
+                            const date = new Date(game.end_time * 1000);
+                            const isWhite = game.white.username.toLowerCase() === username.toLowerCase();
+                            const rating = isWhite ? game.white.rating : game.black.rating;
+                            
+                            if (rating) {
+                                ratingsByTimeControl[game.time_class].push({
+                                    date: date.toISOString().split('T')[0],
+                                    rating: rating
+                                });
+                            }
+                        }
+                    });
+                }
+                
+            } catch (err) {
+                console.log(`Skipped archive: ${archiveUrl}`);
+            }
+        }
+        
+        // Process each time control: sort by date and remove duplicates (keep last rating of each day)
+        const results = {};
+        let totalDataPoints = 0;
+        
+        Object.entries(ratingsByTimeControl).forEach(([timeControl, ratings]) => {
+            if (ratings.length > 0) {
+                const ratingByDate = {};
+                ratings.forEach(entry => {
+                    ratingByDate[entry.date] = entry.rating;
+                });
+                
+                results[timeControl] = Object.entries(ratingByDate)
+                    .map(([date, rating]) => ({ date, rating }))
+                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                totalDataPoints += results[timeControl].length;
+            }
+        });
+        
+        if (totalDataPoints === 0) {
+            throw new Error('No games found for this player');
+        }
+        
+        const foundControls = Object.keys(results).join(', ');
+        statusMsg.textContent = `Success! Found ${totalDataPoints} data points across ${Object.keys(results).length} time controls (${foundControls}).`;
+        statusMsg.className = 'status-success';
+        
+        return results;
+        
+    } catch (error) {
+        statusMsg.textContent = `Error: ${error.message}`;
+        statusMsg.className = 'status-error';
+        throw error;
+    }
+}
+
+// Generate CSV content from rating history
+function generateCSV(ratingHistory) {
+    const header = 'date,rating\n';
+    const rows = ratingHistory.map(entry => `${entry.date},${entry.rating}`).join('\n');
+    return header + rows;
+}
+
+// Download CSV file
+function downloadCSV(content, username, timeControl) {
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${username}_${timeControl}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+// Handle chess.com download button
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+    const username = document.getElementById('username').value.trim();
+    
+    if (!username) {
+        const statusMsg = document.getElementById('statusMessage');
+        statusMsg.textContent = 'Please enter a username';
+        statusMsg.className = 'status-error';
+        return;
+    }
+    
+    try {
+        const ratingHistories = await fetchChessComRatingHistory(username);
+        
+        // Download CSV for each time control and add to chart
+        let downloadedCount = 0;
+        Object.entries(ratingHistories).forEach(([timeControl, ratingHistory]) => {
+            const csvContent = generateCSV(ratingHistory);
+            downloadCSV(csvContent, username, timeControl);
+            
+            // Also add to chart automatically
+            const data = parseCSV(csvContent);
+            const playerName = `${username} (${timeControl})`;
+            if (!players.find(p => p.name === playerName)) {
+                addPlayer(playerName, data);
+            }
+            downloadedCount++;
+        });
+        
+        // Update status message
+        const statusMsg = document.getElementById('statusMessage');
+        statusMsg.textContent += ` Downloaded ${downloadedCount} CSV files and added to chart!`;
+        
+    } catch (error) {
+        console.error('Error fetching chess.com data:', error);
+    }
+});
