@@ -316,24 +316,17 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
     try {
         const ratingHistories = await fetchChessComRatingHistory(username);
         
-        // Download CSV for each time control and add to chart
+        // Download CSV for each time control
         let downloadedCount = 0;
         Object.entries(ratingHistories).forEach(([timeControl, ratingHistory]) => {
             const csvContent = generateCSV(ratingHistory);
-            downloadCSV(csvContent, username, timeControl);
-            
-            // Also add to chart automatically
-            const data = parseCSV(csvContent);
-            const playerName = `${username} (${timeControl})`;
-            if (!players.find(p => p.name === playerName)) {
-                addPlayer(playerName, data);
-            }
+            downloadCSV(csvContent, username, timeControl);        
             downloadedCount++;
         });
         
         // Update status message
         const statusMsg = document.getElementById('statusMessage');
-        statusMsg.textContent += ` Downloaded ${downloadedCount} CSV files and added to chart!`;
+        statusMsg.textContent += ` Downloaded ${downloadedCount} CSV files!`;
         
     } catch (error) {
         console.error('Error fetching chess.com data:', error);
