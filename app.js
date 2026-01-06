@@ -290,16 +290,97 @@ function generateCSV(ratingHistory) {
 }
 
 // Download CSV file
-function downloadCSV(content, username, timeControl) {
+function downloadCSV(content, platform, username, timeControl) {
     const blob = new Blob([content], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${username}_${timeControl}.csv`;
+    a.download = `${platform}_${username}_${timeControl}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+}
+
+// Lichess API integration - fetches rating history
+async function fetchLichessRatingHistory(username) {
+    const statusMsg = document.getElementById('lichessStatusMessage');
+    statusMsg.textContent = 'Fetching data...';
+    statusMsg.className = 'status-info';
+
+    try {
+        const historyResponse = await fetch(`https://lichess.org/api/user/${username}/rating-history`, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!historyResponse.ok) {
+            throw new Error(`Player not found or API error (${historyResponse.status})`);
+        }
+
+        const historyData = await historyResponse.json();
+        if (!Array.isArray(historyData) || historyData.length === 0) {
+            throw new Error('No rating history found for this player');
+        }
+
+        const desiredBuckets = ['UltraBullet', 'Bullet', 'Blitz', 'Rapid', 'Classical'];
+        const ratingsByTimeControl = {
+            ultrabullet: [],
+            bullet: [],
+            blitz: [],
+            rapid: [],
+            classical: [],
+            correspondence: []
+        };
+
+        // Collect ratings per bucket
+        historyData.forEach(bucket => {
+            if (!bucket || !bucket.name || !bucket.points) return;
+            if (!desiredBuckets.includes(bucket.name)) return;
+
+            const key = bucket.name.toLowerCase(); // e.g., "blitz"
+            bucket.points.forEach(([year, month, day, rating]) => {
+                const date = new Date(year, month, day); // Lichess months are 0-based
+                ratingsByTimeControl[key].push({
+                    date: date.toISOString().split('T')[0],
+                    rating
+                });
+            });
+        });
+
+        // Process each bucket: sort and dedupe per day (keep last of day)
+        const results = {};
+        let totalDataPoints = 0;
+
+        Object.entries(ratingsByTimeControl).forEach(([timeControl, ratings]) => {
+            if (ratings.length === 0) return;
+
+            const ratingByDate = {};
+            ratings.forEach(entry => {
+                ratingByDate[entry.date] = entry.rating;
+            });
+
+            results[timeControl] = Object.entries(ratingByDate)
+                .map(([date, rating]) => ({ date, rating }))
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            totalDataPoints += results[timeControl].length;
+        });
+
+        if (totalDataPoints === 0) {
+            throw new Error('No rating history found for this player');
+        }
+
+        const foundControls = Object.keys(results).join(', ');
+        statusMsg.textContent = `Success! Found ${totalDataPoints} data points across ${Object.keys(results).length} time controls (${foundControls}).`;
+        statusMsg.className = 'status-success';
+
+        return results;
+
+    } catch (error) {
+        statusMsg.textContent = `Error: ${error.message}`;
+        statusMsg.className = 'status-error';
+        throw error;
+    }
 }
 
 // Handle chess.com download button
@@ -320,7 +401,7 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
         let downloadedCount = 0;
         Object.entries(ratingHistories).forEach(([timeControl, ratingHistory]) => {
             const csvContent = generateCSV(ratingHistory);
-            downloadCSV(csvContent, username, timeControl);        
+            downloadCSV(csvContent, "chesscom",username, timeControl);        
             downloadedCount++;
         });
         
@@ -330,5 +411,36 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
         
     } catch (error) {
         console.error('Error fetching chess.com data:', error);
+    }
+});
+
+// Handle lichess download button
+document.getElementById('lichessDownloadBtn').addEventListener('click', async () => {
+    const username = document.getElementById('lichessUsername').value.trim();
+    
+    if (!username) {
+        const statusMsg = document.getElementById('lichessStatusMessage');
+        statusMsg.textContent = 'Please enter a username';
+        statusMsg.className = 'status-error';
+        return;
+    }
+    
+    try {
+        const ratingHistories = await fetchLichessRatingHistory(username);
+        
+        // Download CSV for each variant
+        let downloadedCount = 0;
+        Object.entries(ratingHistories).forEach(([variant, ratingHistory]) => {
+            const csvContent = generateCSV(ratingHistory);
+            downloadCSV(csvContent, "lichess", username, variant);        
+            downloadedCount++;
+        });
+        
+        // Update status message
+        const statusMsg = document.getElementById('lichessStatusMessage');
+        statusMsg.textContent += ` Downloaded ${downloadedCount} CSV files!`;
+        
+    } catch (error) {
+        console.error('Error fetching lichess data:', error);
     }
 });

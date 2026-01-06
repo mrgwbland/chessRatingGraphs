@@ -15,10 +15,10 @@
         <div class="controls">
             <div class="date-range">
                 <label>
-                    From: <input type="date" id="startDate" value="2023-01-01">
+                    From: <input type="date" id="startDate" value="2020-01-01">
                 </label>
                 <label>
-                    To: <input type="date" id="endDate" value="2026-01-01">
+                    To: <input type="date" id="endDate" value="2030-01-01">
                 </label>
                 <button id="applyDateRange">Apply</button>
             </div>
@@ -31,13 +31,24 @@
                 </div>
             </div>
             
-            <div class="chesscom-lookup">
-                <h3>Chess.com Profile Lookup</h3>
-                <div class="lookup-form">
-                    <input type="text" id="username" placeholder="Enter chess.com username">
-                    <button id="downloadBtn">Download Data</button>
+            <div class="profile-lookups">
+                <div class="chesscom-lookup">
+                    <h3>Chess.com Profile Lookup</h3>
+                    <div class="lookup-form">
+                        <input type="text" id="username" placeholder="Enter chess.com username">
+                        <button id="downloadBtn">Download Data</button>
+                    </div>
+                    <div id="statusMessage"></div>
                 </div>
-                <div id="statusMessage"></div>
+                
+                <div class="lichess-lookup">
+                    <h3>Lichess Profile Lookup</h3>
+                    <div class="lookup-form">
+                        <input type="text" id="lichessUsername" placeholder="Enter lichess username">
+                        <button id="lichessDownloadBtn">Download Data</button>
+                    </div>
+                    <div id="lichessStatusMessage"></div>
+                </div>
             </div>
         </div>
         

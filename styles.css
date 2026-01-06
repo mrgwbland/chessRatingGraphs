@@ -146,13 +146,21 @@ button:hover, .file-label:hover {
     height: 100% !important;
 }
 
-.chesscom-lookup {
+.profile-lookups {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
     margin-top: 1.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid #333;
 }
 
-.chesscom-lookup h3 {
+.chesscom-lookup, .lichess-lookup {
+    flex: 1;
+    min-width: 300px;
+}
+
+.chesscom-lookup h3, .lichess-lookup h3 {
     font-size: 1rem;
     font-weight: 400;
     margin-bottom: 1rem;
@@ -166,7 +174,7 @@ button:hover, .file-label:hover {
     align-items: center;
 }
 
-#username {
+#username, #lichessUsername {
     flex: 1;
     min-width: 200px;
     padding: 0.5rem;
@@ -177,7 +185,7 @@ button:hover, .file-label:hover {
     font-size: 0.9rem;
 }
 
-#username::placeholder {
+#username::placeholder, #lichessUsername::placeholder {
     color: #666;
 }
 
@@ -191,17 +199,17 @@ button:hover, .file-label:hover {
     cursor: pointer;
 }
 
-#downloadBtn {
+#downloadBtn, #lichessDownloadBtn {
     background: #00d9ff;
     color: #0f0f23;
     font-weight: 500;
 }
 
-#downloadBtn:hover {
+#downloadBtn:hover, #lichessDownloadBtn:hover {
     background: #00ffff;
 }
 
-#statusMessage {
+#statusMessage, #lichessStatusMessage {
     margin-top: 0.75rem;
     padding: 0.5rem;
     border-radius: 6px;
