@@ -1,5 +1,5 @@
 const colors = [
-    '#e94560', '#00d9ff', '#00ff88', '#ffaa00', 
+    '#e94560', '#00d9ff', '#00ff88', '#ffaa00',
     '#ff66cc', '#66ffcc', '#ff6666', '#9966ff'
 ];
 
@@ -56,7 +56,7 @@ function initChart() {
 function parseCSV(content) {
     const lines = content.trim().split('\n');
     const data = [];
-    
+
     for (let i = 1; i < lines.length; i++) {
         const [date, rating] = lines[i].split(',');
         if (date && rating) {
@@ -66,7 +66,7 @@ function parseCSV(content) {
             });
         }
     }
-    
+
     return data.sort((a, b) => a.x - b.x);
 }
 
@@ -79,7 +79,7 @@ function getPlayerName(filename) {
 function addPlayer(name, data) {
     const color = colors[colorIndex % colors.length];
     colorIndex++;
-    
+
     players.push({ name, data, color });
     updateChart();
     updatePlayerList();
@@ -96,7 +96,7 @@ function removePlayer(name) {
 function filterByDateRange(data) {
     const startDate = new Date(document.getElementById('startDate').value);
     const endDate = new Date(document.getElementById('endDate').value);
-    
+
     return data.filter(point => point.x >= startDate && point.x <= endDate);
 }
 
@@ -112,7 +112,7 @@ function updateChart() {
         pointHoverRadius: 3,
         tension: 0.1
     }));
-    
+
     chart.update();
 }
 
@@ -131,17 +131,17 @@ function updatePlayerList() {
 // Handle file input
 document.getElementById('csvInput').addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
-    
+
     for (const file of files) {
         const content = await file.text();
         const data = parseCSV(content);
         const name = getPlayerName(file.name);
-        
+
         if (!players.find(p => p.name === name)) {
             addPlayer(name, data);
         }
     }
-    
+
     e.target.value = '';
 });
 
@@ -155,7 +155,7 @@ async function loadSampleData() {
         'data/player2_hikaru.csv',
         'data/player3_fabiano.csv'
     ];
-    
+
     for (const path of sampleFiles) {
         try {
             const response = await fetch(path);
@@ -180,7 +180,7 @@ async function fetchChessComRatingHistory(username) {
     const statusMsg = document.getElementById('statusMessage');
     statusMsg.textContent = 'Fetching data...';
     statusMsg.className = 'status-info';
-    
+
     try {
         // Fetch player's game archives
         const archivesResponse = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`, {
@@ -188,20 +188,20 @@ async function fetchChessComRatingHistory(username) {
                 'User-Agent': 'chess-rating-graphs/1.0 (username: 62WestWallaby; contact: mrgwbland@gmail.com)'
             }
         });
-        
+
         if (!archivesResponse.ok) {
             throw new Error(`Player not found or API error (${archivesResponse.status})`);
         }
-        
+
         const archivesData = await archivesResponse.json();
         const archives = archivesData.archives || [];
-        
+
         if (archives.length === 0) {
             throw new Error('No game history found for this player');
         }
-        
+
         statusMsg.textContent = `Found ${archives.length} months of data. Processing...`;
-        
+
         // Store ratings by time control
         const ratingsByTimeControl = {
             bullet: [],
@@ -209,7 +209,7 @@ async function fetchChessComRatingHistory(username) {
             rapid: [],
             daily: []
         };
-        
+
         // Fetch all monthly archives
         for (const archiveUrl of archives) {
             try {
@@ -218,11 +218,11 @@ async function fetchChessComRatingHistory(username) {
                         'User-Agent': 'chess-rating-graphs/1.0 (username: 62WestWallaby; contact: mrgwbland@gmail.com)'
                     }
                 });
-                
+
                 if (gamesResponse.ok) {
                     const gamesData = await gamesResponse.json();
                     const games = gamesData.games || [];
-                    
+
                     // Extract ratings for all time controls
                     games.forEach(game => {
                         // Only include standard chess games, not variants like 960, bughouse, etc.
@@ -230,7 +230,7 @@ async function fetchChessComRatingHistory(username) {
                             const date = new Date(game.end_time * 1000);
                             const isWhite = game.white.username.toLowerCase() === username.toLowerCase();
                             const rating = isWhite ? game.white.rating : game.black.rating;
-                            
+
                             if (rating) {
                                 ratingsByTimeControl[game.time_class].push({
                                     date: date.toISOString().split('T')[0],
@@ -240,41 +240,41 @@ async function fetchChessComRatingHistory(username) {
                         }
                     });
                 }
-                
+
             } catch (err) {
                 console.log(`Skipped archive: ${archiveUrl}`);
             }
         }
-        
+
         // Process each time control: sort by date and remove duplicates (keep last rating of each day)
         const results = {};
         let totalDataPoints = 0;
-        
+
         Object.entries(ratingsByTimeControl).forEach(([timeControl, ratings]) => {
             if (ratings.length > 0) {
                 const ratingByDate = {};
                 ratings.forEach(entry => {
                     ratingByDate[entry.date] = entry.rating;
                 });
-                
+
                 results[timeControl] = Object.entries(ratingByDate)
                     .map(([date, rating]) => ({ date, rating }))
                     .sort((a, b) => new Date(a.date) - new Date(b.date));
-                
+
                 totalDataPoints += results[timeControl].length;
             }
         });
-        
+
         if (totalDataPoints === 0) {
             throw new Error('No games found for this player');
         }
-        
+
         const foundControls = Object.keys(results).join(', ');
         statusMsg.textContent = `Success! Found ${totalDataPoints} data points across ${Object.keys(results).length} time controls (${foundControls}).`;
         statusMsg.className = 'status-success';
-        
+
         return results;
-        
+
     } catch (error) {
         statusMsg.textContent = `Error: ${error.message}`;
         statusMsg.className = 'status-error';
@@ -309,20 +309,37 @@ async function fetchLichessRatingHistory(username) {
     statusMsg.className = 'status-info';
 
     try {
-        const historyResponse = await fetch(`https://lichess.org/api/user/${username}/rating-history`, {
+        // Check if user exists and whether they have played games
+        const userResponse = await fetch(`https://lichess.org/api/user/${encodeURIComponent(username)}`);
+        if (!userResponse.ok) {
+            if (userResponse.status === 404) {
+                throw new Error(`Player not found (${userResponse.status})`);
+            }
+            throw new Error(`API error (${userResponse.status})`);
+        }
+
+        const userData = await userResponse.json();
+        const hasGames = (userData.count && userData.count.rated > 0) ||
+            (userData.perfs && Object.values(userData.perfs).some(p => p.games > 0));
+
+        if (!hasGames) {
+            throw new Error('No rating history found for this player');
+        }
+
+        const historyResponse = await fetch(`https://lichess.org/api/user/${encodeURIComponent(username)}/rating-history`, {
             headers: { 'Accept': 'application/json' }
         });
 
         if (!historyResponse.ok) {
-            throw new Error(`Player not found or API error (${historyResponse.status})`);
+            throw new Error(`API error (${historyResponse.status})`);
         }
 
         const historyData = await historyResponse.json();
         if (!Array.isArray(historyData) || historyData.length === 0) {
-            throw new Error('No rating history found for this player');
+            throw new Error('Account exists but rating history is not cached');
         }
 
-        const desiredBuckets = ['UltraBullet', 'Bullet', 'Blitz', 'Rapid', 'Classical'];
+        const desiredBuckets = ['ultrabullet', 'bullet', 'blitz', 'rapid', 'classical', 'correspondence'];
         const ratingsByTimeControl = {
             ultrabullet: [],
             bullet: [],
@@ -335,13 +352,13 @@ async function fetchLichessRatingHistory(username) {
         // Collect ratings per bucket
         historyData.forEach(bucket => {
             if (!bucket || !bucket.name || !bucket.points) return;
-            if (!desiredBuckets.includes(bucket.name)) return;
+            const key = bucket.name.toLowerCase();
+            if (!desiredBuckets.includes(key)) return;
 
-            const key = bucket.name.toLowerCase(); // e.g., "blitz"
             bucket.points.forEach(([year, month, day, rating]) => {
-                const date = new Date(year, month, day); // Lichess months are 0-based
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 ratingsByTimeControl[key].push({
-                    date: date.toISOString().split('T')[0],
+                    date: dateStr,
                     rating
                 });
             });
@@ -367,7 +384,7 @@ async function fetchLichessRatingHistory(username) {
         });
 
         if (totalDataPoints === 0) {
-            throw new Error('No rating history found for this player');
+            throw new Error('No cached rating history found for this player');
         }
 
         const foundControls = Object.keys(results).join(', ');
@@ -386,29 +403,29 @@ async function fetchLichessRatingHistory(username) {
 // Handle chess.com download button
 document.getElementById('downloadBtn').addEventListener('click', async () => {
     const username = document.getElementById('username').value.trim();
-    
+
     if (!username) {
         const statusMsg = document.getElementById('statusMessage');
         statusMsg.textContent = 'Please enter a username';
         statusMsg.className = 'status-error';
         return;
     }
-    
+
     try {
         const ratingHistories = await fetchChessComRatingHistory(username);
-        
+
         // Download CSV for each time control
         let downloadedCount = 0;
         Object.entries(ratingHistories).forEach(([timeControl, ratingHistory]) => {
             const csvContent = generateCSV(ratingHistory);
-            downloadCSV(csvContent, "chesscom",username, timeControl);        
+            downloadCSV(csvContent, "chesscom", username, timeControl);
             downloadedCount++;
         });
-        
+
         // Update status message
         const statusMsg = document.getElementById('statusMessage');
         statusMsg.textContent += ` Downloaded ${downloadedCount} CSV files!`;
-        
+
     } catch (error) {
         console.error('Error fetching chess.com data:', error);
     }
@@ -417,29 +434,29 @@ document.getElementById('downloadBtn').addEventListener('click', async () => {
 // Handle lichess download button
 document.getElementById('lichessDownloadBtn').addEventListener('click', async () => {
     const username = document.getElementById('lichessUsername').value.trim();
-    
+
     if (!username) {
         const statusMsg = document.getElementById('lichessStatusMessage');
         statusMsg.textContent = 'Please enter a username';
         statusMsg.className = 'status-error';
         return;
     }
-    
+
     try {
         const ratingHistories = await fetchLichessRatingHistory(username);
-        
+
         // Download CSV for each variant
         let downloadedCount = 0;
         Object.entries(ratingHistories).forEach(([variant, ratingHistory]) => {
             const csvContent = generateCSV(ratingHistory);
-            downloadCSV(csvContent, "lichess", username, variant);        
+            downloadCSV(csvContent, "lichess", username, variant);
             downloadedCount++;
         });
-        
+
         // Update status message
         const statusMsg = document.getElementById('lichessStatusMessage');
         statusMsg.textContent += ` Downloaded ${downloadedCount} CSV files!`;
-        
+
     } catch (error) {
         console.error('Error fetching lichess data:', error);
     }
