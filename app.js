@@ -336,7 +336,7 @@ async function fetchLichessRatingHistory(username) {
 
         const historyData = await historyResponse.json();
         if (!Array.isArray(historyData) || historyData.length === 0) {
-            throw new Error('Account exists but rating history is not cached');
+            throw new Error(`Account exists but rating history is not cached. <a href="https://lichess.org/api/user/${encodeURIComponent(username)}/rating-history" target="_blank" rel="noopener" style="color: #00d9ff; text-decoration: underline;">Click here to generate rating history on Lichess</a> (make sure you are signed in), then click "Download Data" again. The Rating history will remain available on the Lichess servers for 10 minutes`);
         }
 
         const desiredBuckets = ['ultrabullet', 'bullet', 'blitz', 'rapid', 'classical', 'correspondence'];
@@ -384,7 +384,7 @@ async function fetchLichessRatingHistory(username) {
         });
 
         if (totalDataPoints === 0) {
-            throw new Error('No cached rating history found for this player');
+            throw new Error(`Account exists but rating history is not cached. <a href="https://lichess.org/api/user/${encodeURIComponent(username)}/rating-history" target="_blank" rel="noopener" style="color: #00d9ff; text-decoration: underline;">Click here to generate rating history on Lichess</a> (make sure you are signed in), then click "Download Data" again. The Rating history will remain available on the Lichess servers for 10 minutes`);
         }
 
         const foundControls = Object.keys(results).join(', ');
@@ -394,7 +394,7 @@ async function fetchLichessRatingHistory(username) {
         return results;
 
     } catch (error) {
-        statusMsg.textContent = `Error: ${error.message}`;
+        statusMsg.innerHTML = `Error: ${error.message}`;
         statusMsg.className = 'status-error';
         throw error;
     }
